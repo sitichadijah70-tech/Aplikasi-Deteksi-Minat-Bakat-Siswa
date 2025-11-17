@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Deteksi Minat Bakat Siswa</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <!-- Load Inter Font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e0e0e0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body class="min-h-screen antialiased">
+
+    <!-- Main Application Container -->
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- Header and Developer Info -->
+        <header class="mb-8 p-6 bg-white shadow-lg rounded-xl">
+            <h1 class="text-4xl font-extrabold text-blue-700 mb-2">Deteksi Minat Bakat Siswa</h1>
+            <p class="text-gray-600 mb-4">Aplikasi untuk memetakan minat dan bakat siswa di Tiga bidang utama: Olahraga, Seni Budaya, dan Akademik.</p>
+            <div class="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
+                <p>Pengembang: <span class="font-semibold">Tim AMB</span></p>
+                <p>Kontak: <span class="font-semibold">----</span></p>
+            </div>
+        </header>
+
+        <!-- Loading/Status Indicator -->
+        <div id="statusMessage" class="text-center p-4 text-lg font-medium text-gray-500">
+            Memuat aplikasi dan mengautentikasi...
+        </div>
+
+        <!-- Main Dashboard (Hidden until ready) -->
+        <main id="dashboard" class="hidden space-y-8">
+
+            <!-- Action Bar: Tambah, Kosongkan, Ekspor -->
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <button onclick="toggleModal(true)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-md flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Tambah Siswa Baru
+                </button>
+                <div class="flex gap-4">
+                    <button onclick="clearAllData()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-md flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Kosongkan Data
+                    </button>
+                    <button onclick="exportToCSV()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-md flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Ekspor ke Excel (CSV)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="bg-white shadow-lg p-6 rounded-xl">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Analisis Minat Bakat Keseluruhan</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-xl font-medium mb-3">Distribusi Rata-Rata Minat</h3>
+                        <canvas id="averageChart"></canvas>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-medium mb-3">Distribusi Minat Tertinggi Siswa</h3>
+                        <canvas id="topInterestChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students Data Table -->
+            <div class="bg-white shadow-lg p-6 rounded-xl">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Data Siswa dan Hasil Deteksi (<span id="studentCount">0</span> Siswa)</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kelas</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Olahraga</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Seni Budaya</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Akademik</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Minat Tertinggi</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Student data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Survey Input -->
+    <div id="surveyModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden overflow-y-auto z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 md:p-8 transform transition-all">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h2 id="modalTitle" class="text-2xl font-bold text-blue-700">Input Data Siswa & Kuesioner</h2>
+                    <button onclick="toggleModal(false)" class="text-gray-500 hover:text-gray-800">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <form id="surveyForm" class="space-y-6">
+                    <!-- General Info -->
+                    <fieldset class="p-4 border border-gray-200 rounded-lg">
+                        <legend class="text-lg font-semibold text-gray-700 px-2">Data Dasar Siswa</legend>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <label for="studentName" class="block text-sm font-medium text-gray-700">Nama Siswa</label>
+                                <input type="text" id="studentName" name="studentName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            </div>
+                            <div>
+                                <label for="studentClass" class="block text-sm font-medium text-gray-700">Kelas (Contoh: 8A)</label>
+                                <input type="text" id="studentClass" name="studentClass" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Survey Sections (Detailed Questions) -->
+                    <div class="space-y-6 max-h-96 overflow-y-auto p-2">
+
+                        <!-- 1. Olahraga -->
+                        <fieldset class="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                            <legend class="text-xl font-bold text-blue-600 px-2">1. Bidang Olahraga</legend>
+                            <p class="text-sm text-gray-600 mb-3">Skala: 1 (Sangat Tidak Setuju) - 5 (Sangat Setuju)</p>
+                            <div class="space-y-4">
+                                <!-- Q1 Sport -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q1. Saya rutin berolahraga setidaknya 2-3 kali seminggu.</label>
+                                    <div id="q1_sport_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <!-- Radios will be generated by JS -->
+                                    </div>
+                                </div>
+                                <!-- Q2 Sport -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q2. Saya pernah atau sedang aktif bergabung dalam klub atau tim olahraga.</label>
+                                    <div id="q2_sport_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                                <!-- Q3 Sport -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q3. Saya memiliki stamina yang baik dibandingkan teman-teman seusia saya.</label>
+                                    <div id="q3_sport_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- 2. Seni Budaya -->
+                        <fieldset class="p-4 border border-red-200 rounded-lg bg-red-50">
+                            <legend class="text-xl font-bold text-red-600 px-2">2. Bidang Seni Budaya</legend>
+                            <p class="text-sm text-gray-600 mb-3">Skala: 1 (Sangat Tidak Setuju) - 5 (Sangat Setuju)</p>
+                            <div class="space-y-4">
+                                <!-- Q1 Art -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q4. Orang lain sering memuji hasil karya (gambar, tulisan, musik) saya.</label>
+                                    <div id="q4_art_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                                <!-- Q2 Art -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q5. Saya bisa memadupadankan warna atau komposisi dengan baik.</label>
+                                    <div id="q5_art_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                                <!-- Q3 Art -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q6. Saya memiliki imajinasi yang kuat dan sering berkhayal.</label>
+                                    <div id="q6_art_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- 3. Akademik -->
+                        <fieldset class="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
+                            <legend class="text-xl font-bold text-yellow-700 px-2">3. Bidang Akademik</legend>
+                            <p class="text-sm text-gray-600 mb-3">Skala: 1 (Sangat Tidak Setuju) - 5 (Sangat Setuju)</p>
+                            <div class="space-y-4">
+                                <!-- Q1 Research -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q7. Saya menikmati proses memecahkan teka-teki yang rumit atau soal matematika.</label>
+                                    <div id="q7_research_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                                <!-- Q2 Research -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q8. Saya sering menghabiskan waktu mempelajari topik baru di luar jam sekolah.</label>
+                                    <div id="q8_research_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                                <!-- Q3 Research -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Q9. Saya dapat menjelaskan ide-ide yang rumit secara sederhana kepada orang lain.</label>
+                                    <div id="q9_research_radios" class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t">
+                        <button type="submit" id="submitButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-300 shadow-lg flex items-center">
+                            Simpan Data Siswa
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase/Chart.js/Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, addDoc, query, serverTimestamp, deleteDoc, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi dummy yang aman untuk pengujian lokal
+        const DUMMY_FIREBASE_CONFIG = {
+            apiKey: "DUMMY_API_KEY",
+            authDomain: "local-dev.firebaseapp.com",
+            projectId: "local-dev-id",
+            storageBucket: "local-dev.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef1234567890",
+            isDummy: true // Penanda khusus untuk mode offline
+        };
+        
+        // Global Firebase Variables (Provided by Canvas Environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : DUMMY_FIREBASE_CONFIG;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = null;
+        let students = [];
+        let averageChartInstance = null;
+        let topInterestChartInstance = null;
+        let isDummyMode = firebaseConfig.isDummy || false; // Mendeteksi mode dummy/offline
+        let editingStudentId = null; // Menyimpan ID siswa yang sedang diedit
+
+        const STATUS_MESSAGE = document.getElementById('statusMessage');
+        const DASHBOARD = document.getElementById('dashboard');
+        const SURVEY_MODAL = document.getElementById('surveyModal');
+        const SURVEY_FORM = document.getElementById('surveyForm');
+        const STUDENT_COUNT_SPAN = document.getElementById('studentCount');
+
+        // --- Core Application Functions ---
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            if (isDummyMode) {
+                // Mode Offline/Demo: Lewati inisialisasi Firebase untuk menghindari error koneksi.
+                STATUS_MESSAGE.textContent = 'MODE OFFLINE/DEMO: Koneksi database Firebase dilewati. Data disimpan ke file TXT dan hanya bersifat sementara.';
+                STATUS_MESSAGE.classList.remove('text-gray-500');
+                STATUS_MESSAGE.classList.add('text-red-600', 'font-bold', 'bg-red-100', 'rounded-lg', 'shadow-md');
+                DASHBOARD.classList.remove('hidden');
+                // Data dummy kosong untuk memulai
+                students = [];
+                renderStudentsTable(students);
+                renderCharts(students);
+                return; 
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                STATUS_MESSAGE.textContent = 'Menunggu autentikasi...';
+
+                // Sign in using the custom token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        STATUS_MESSAGE.classList.add('hidden');
+                        DASHBOARD.classList.remove('hidden');
+                        console.log('Authentication successful. User ID:', userId);
+                        setupRealtimeListener();
+                    } else {
+                        userId = crypto.randomUUID(); // Fallback to anonymous ID if auth fails
+                        STATUS_MESSAGE.textContent = 'Berhasil masuk secara anonim.';
+                        STATUS_MESSAGE.classList.add('hidden');
+                        DASHBOARD.classList.remove('hidden');
+                        setupRealtimeListener();
+                    }
+                });
+
+            } catch (error) {
+                STATUS_MESSAGE.textContent = `ERROR: Gagal menginisialisasi Firebase. ${error.message}. Coba gunakan jaringan internet atau jalankan di lingkungan Canvas.`;
+                STATUS_MESSAGE.classList.remove('text-gray-500');
+                STATUS_MESSAGE.classList.add('text-red-600', 'font-bold');
+                console.error("Firebase initialization error:", error);
+            }
+        }
+
+        /**
+         * Generates the collection path for private user data.
+         * @returns {object} Firestore collection reference.
+         */
+        function getCollectionRef() {
+            if (!db || !userId) {
+                console.error("Firestore DB or User ID not initialized.");
+                return null;
+            }
+            // Path: /artifacts/{appId}/users/{userId}/survey_results
+            const userPath = `artifacts/${appId}/users/${userId}`;
+            return collection(db, userPath, 'survey_results');
+        }
+
+        /**
+         * Sets up a real-time listener for student data.
+         */
+        function setupRealtimeListener() {
+            if (isDummyMode) return; // Lewati jika mode demo
+
+            const colRef = getCollectionRef();
+            if (!colRef) return;
+
+            onSnapshot(colRef, (snapshot) => {
+                const newStudents = [];
+                snapshot.forEach((doc) => {
+                    newStudents.push({ id: doc.id, ...doc.data() });
+                });
+                students = newStudents;
+                STUDENT_COUNT_SPAN.textContent = students.length;
+
+                renderStudentsTable(students);
+                renderCharts(students);
+                console.log(`Data updated: ${students.length} students loaded.`);
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+                showErrorModal("Gagal memuat data", "Terjadi kesalahan saat memuat data dari database. Silakan coba muat ulang halaman.");
+            });
+        }
+
+        /**
+         * Calculates scores and determines the top interest from RAW form data.
+         */
+        function calculateResults(formData) {
+            const sportScore = (parseInt(formData.q1_sport) || 0) + (parseInt(formData.q2_sport) || 0) + (parseInt(formData.q3_sport) || 0);
+            const artScore = (parseInt(formData.q4_art) || 0) + (parseInt(formData.q5_art) || 0) + (parseInt(formData.q6_art) || 0);
+            const researchScore = (parseInt(formData.q7_research) || 0) + (parseInt(formData.q8_research) || 0) + (parseInt(formData.q9_research) || 0);
+            
+            const scores = {
+                sport: sportScore,
+                art: artScore,
+                research: researchScore,
+            };
+
+            let maxScore = 0;
+            let topInterest = 'Belum Terdeteksi';
+            let categories = {
+                sport: 'Olahraga',
+                art: 'Seni Budaya',
+                research: 'Akademik' // Map 'research' key to 'Akademik' display name
+            };
+
+            for (const key in scores) {
+                if (scores[key] > maxScore) {
+                    maxScore = scores[key];
+                    topInterest = categories[key];
+                } else if (scores[key] === maxScore && maxScore > 0) {
+                    if (topInterest !== 'Belum Terdeteksi' && !topInterest.includes(categories[key])) {
+                        topInterest += ` & ${categories[key]}`;
+                    } else if (topInterest === 'Belum Terdeteksi') {
+                        topInterest = categories[key];
+                    }
+                }
+            }
+            if (topInterest.includes('&')) {
+                 topInterest = 'Ikatan Minat: ' + topInterest;
+            }
+
+            return { scores, topInterest };
+        }
+
+        /**
+         * Renders the table of all student results.
+         */
+        function renderStudentsTable(students) {
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = ''; // Clear previous data
+
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">Belum ada data siswa yang dimasukkan.</td></tr>';
+                return;
+            }
+
+            students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            students.forEach(student => {
+                const scores = student.scores || { sport: 0, art: 0, research: 0 };
+                const topInterest = student.topInterest || 'Belum Terdeteksi';
+                
+                // Escape single quotes for use in onclick attribute
+                const studentJsonString = JSON.stringify(student).replace(/'/g, '&#39;'); 
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${student.name}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${student.class}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center font-bold text-blue-600">${scores.sport}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center font-bold text-red-600">${scores.art}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-center font-bold text-yellow-600">${scores.research}</td>
+                    <td class="px-4 py-3 text-left text-sm font-bold text-gray-700 max-w-xs">${topInterest}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                        <button onclick='openEditModal("${student.id}")' class="text-indigo-600 hover:text-indigo-900 mr-2 p-1 rounded-md hover:bg-indigo-100 transition duration-150" title="Edit">
+                            <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button onclick="deleteStudent('${student.id}')" class="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-100 transition duration-150" title="Hapus">
+                            <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        /**
+         * Renders the Chart.js diagrams. (Functionality remains the same)
+         */
+        function renderCharts(students) {
+            if (students.length === 0) {
+                if (averageChartInstance) averageChartInstance.destroy();
+                if (topInterestChartInstance) topInterestChartInstance.destroy();
+                const ctxAvg = document.getElementById('averageChart').getContext('2d');
+                ctxAvg.clearRect(0, 0, ctxAvg.canvas.width, ctxAvg.canvas.height);
+                const ctxTop = document.getElementById('topInterestChart').getContext('2d');
+                ctxTop.clearRect(0, 0, ctxTop.canvas.width, ctxTop.canvas.height);
+                return;
+            }
+
+            let totalScores = { sport: 0, art: 0, research: 0 };
+            let topInterestCounts = { sport: 0, art: 0, research: 0 };
+            
+            students.forEach(s => {
+                const scores = s.scores || { sport: 0, art: 0, research: 0 };
+                const topInterest = s.topInterest || 'Belum Terdeteksi';
+
+                totalScores.sport += scores.sport;
+                totalScores.art += scores.art;
+                totalScores.research += scores.research;
+
+                // Hitung Minat Tertinggi (Hanya hitung minat tunggal)
+                if (topInterest.includes('Olahraga') && !topInterest.includes('&')) topInterestCounts.sport++;
+                if (topInterest.includes('Seni Budaya') && !topInterest.includes('&')) topInterestCounts.art++;
+                if (topInterest.includes('Akademik') && !topInterest.includes('&')) topInterestCounts.research++;
+            });
+
+            const avgScores = {
+                sport: totalScores.sport / students.length,
+                art: totalScores.art / students.length,
+                research: totalScores.research / students.length,
+            };
+
+            const labels = ['Olahraga', 'Seni Budaya', 'Akademik'];
+            const colors = ['#3b82f6', '#ef4444', '#f59e0b'];
+
+            // Chart 1: Average Radar Chart
+            if (averageChartInstance) averageChartInstance.destroy();
+            const ctxAvg = document.getElementById('averageChart').getContext('2d');
+            averageChartInstance = new Chart(ctxAvg, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Rata-Rata Minat (Skala 0-15)',
+                        data: [avgScores.sport, avgScores.art, avgScores.research],
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        pointBackgroundColor: '#3b82f6',
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        r: {
+                            angleLines: { display: false },
+                            suggestedMin: 0,
+                            suggestedMax: 15,
+                            pointLabels: { font: { size: 14, weight: 'bold' } },
+                            grid: { color: '#e0e0e0' }
+                        }
+                    },
+                    plugins: { legend: { display: true, position: 'bottom' } }
+                }
+            });
+
+            // Chart 2: Top Interest Distribution (Doughnut Chart)
+            if (topInterestChartInstance) topInterestChartInstance.destroy();
+            const ctxTop = document.getElementById('topInterestChart').getContext('2d');
+            topInterestChartInstance = new Chart(ctxTop, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: [topInterestCounts.sport, topInterestCounts.art, topInterestCounts.research],
+                        backgroundColor: colors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: (context) => {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} siswa (${percentage}%)`;
+                        } } }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Exports all student data to a CSV file (for Excel compatibility).
+         */
+        window.exportToCSV = function() {
+            if (students.length === 0) {
+                showErrorModal("Ekspor Gagal", "Tidak ada data siswa untuk diekspor.");
+                return;
+            }
+
+            const headers = [
+                "Nama Siswa", "Kelas", "Olahraga (Skor 0-15)", "Seni Budaya (Skor 0-15)",
+                "Akademik (Skor 0-15)", "Minat Tertinggi"
+            ];
+
+            const rows = students.map(student => {
+                const scores = student.scores || { sport: 0, art: 0, research: 0 };
+                const topInterest = student.topInterest || 'Belum Terdeteksi';
+
+                return [
+                    `"${student.name}"`, 
+                    `"${student.class}"`,
+                    scores.sport,
+                    scores.art,
+                    scores.research,
+                    `"${topInterest}"`
+                ].join(',');
+            });
+
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Data_Minat_Bakat_Siswa_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showMessageModal("Ekspor Berhasil", "Data siswa berhasil diekspor ke file CSV!");
+        }
+
+        /**
+         * Exports data to a simple TXT file (Used in Dummy/Offline Mode).
+         */
+        function exportToTXT(data) {
+            const report = data.map(s => {
+                const answers = JSON.stringify(s.answers).replace(/"/g, '').replace(/{|}/g, '');
+                return `Nama: ${s.name}, Kelas: ${s.class}\n` + 
+                       `Skor: O=${s.scores.sport}, S=${s.scores.art}, R=${s.scores.research}\n` +
+                       `Minat Tertinggi: ${s.topInterest}\n` +
+                       `Jawaban Kuesioner: ${answers}\n\n`;
+            }).join('----------------------------------------\n');
+
+            const content = `Laporan Minat Bakat Siswa (Mode Offline) - ${new Date().toLocaleString()}\n\n${report}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Data_Minat_Bakat_Siswa_Lokal_${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showMessageModal("Penyimpanan Lokal", "Data siswa berhasil diunduh ke file TXT.");
+        }
+
+
+        // --- DELETE & CLEAR FUNCTIONS ---
+
+        /**
+         * Deletes a student record by ID.
+         */
+        window.deleteStudent = function(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            showConfirmModal("Konfirmasi Hapus", `Anda yakin ingin menghapus data siswa ${student.name}?`, async () => {
+                if (isDummyMode) {
+                    // OFFLINE MODE: Delete locally
+                    students = students.filter(s => s.id !== studentId);
+                    STUDENT_COUNT_SPAN.textContent = students.length;
+                    renderStudentsTable(students);
+                    renderCharts(students);
+                    showMessageModal("Berhasil", `Data siswa ${student.name} berhasil dihapus secara lokal.`);
+                    return;
+                }
+
+                // ONLINE MODE: Delete from Firestore
+                try {
+                    const colRef = getCollectionRef();
+                    if (!colRef) throw new Error("Koneksi database tidak siap.");
+                    const docRef = doc(colRef, studentId);
+                    await deleteDoc(docRef);
+                    showMessageModal("Berhasil", `Data siswa ${student.name} berhasil dihapus dari database.`);
+                } catch (error) {
+                    console.error("Error deleting document: ", error);
+                    showErrorModal("Gagal Menghapus Data", `Terjadi kesalahan saat menghapus data: ${error.message}.`);
+                }
+            });
+        }
+
+        /**
+         * Clears all student data.
+         */
+        window.clearAllData = function() {
+            if (students.length === 0) {
+                showErrorModal("Gagal", "Tidak ada data untuk dikosongkan.");
+                return;
+            }
+
+            showConfirmModal("Konfirmasi Kosongkan Data", `Anda yakin ingin menghapus SEMUA data (${students.length} siswa)? Aksi ini tidak dapat dibatalkan.`, async () => {
+                if (isDummyMode) {
+                    // OFFLINE MODE: Clear locally
+                    students = [];
+                    STUDENT_COUNT_SPAN.textContent = 0;
+                    renderStudentsTable(students);
+                    renderCharts(students);
+                    showMessageModal("Berhasil", "Semua data siswa berhasil dikosongkan (dalam mode lokal).");
+                    return;
+                }
+
+                // ONLINE MODE: Delete all documents from Firestore
+                try {
+                    const colRef = getCollectionRef();
+                    const snapshot = await getDocs(query(colRef));
+                    
+                    if (snapshot.docs.length === 0) {
+                        showMessageModal("Berhasil", "Database sudah kosong.");
+                        return;
+                    }
+
+                    // Delete documents one by one
+                    let deletePromises = [];
+                    snapshot.docs.forEach((d) => {
+                        deletePromises.push(deleteDoc(doc(colRef, d.id)));
+                    });
+
+                    await Promise.all(deletePromises);
+                    showMessageModal("Berhasil", `Semua ${snapshot.docs.length} data siswa berhasil dihapus dari database.`);
+
+                } catch (error) {
+                    console.error("Error clearing all data: ", error);
+                    showErrorModal("Gagal Mengosongkan Data", `Terjadi kesalahan saat menghapus semua data: ${error.message}.`);
+                }
+            });
+        }
+
+
+        // --- UI/Helper Functions (Updated) ---
+
+        /**
+         * Toggles the visibility of the survey modal.
+         */
+        window.toggleModal = function(show) {
+            const modalTitle = document.getElementById('modalTitle');
+            const submitButton = document.getElementById('submitButton');
+
+            if (show) {
+                // Reset to Add mode state if not triggered by openEditModal
+                if (editingStudentId === null) { 
+                    modalTitle.textContent = 'Input Data Siswa & Kuesioner';
+                    submitButton.textContent = 'Simpan Data Siswa';
+                    SURVEY_FORM.reset(); 
+                }
+                
+                SURVEY_MODAL.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                SURVEY_MODAL.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                editingStudentId = null; // Reset editing state on close
+            }
+        }
+
+        /**
+         * Finds student data by ID and opens the modal for editing.
+         */
+        window.openEditModal = function(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) {
+                showErrorModal("Error", "Data siswa tidak ditemukan.");
+                return;
+            }
+
+            const modalTitle = document.getElementById('modalTitle');
+            const submitButton = document.getElementById('submitButton');
+            
+            // Set Edit mode state
+            editingStudentId = studentId;
+            modalTitle.textContent = `Edit Data Siswa: ${student.name}`;
+            submitButton.textContent = 'Simpan Perubahan';
+            
+            // Populate form fields
+            document.getElementById('studentName').value = student.name;
+            document.getElementById('studentClass').value = student.class;
+            
+            // Populate radio buttons
+            if (student.answers) {
+                for (const key in student.answers) {
+                    const value = student.answers[key];
+                    const radioId = `${key}_${value}`;
+                    const radio = document.getElementById(radioId);
+                    if (radio) radio.checked = true;
+                }
+            }
+            
+            toggleModal(true); // Open the modal
+            SURVEY_FORM.scrollIntoView({ behavior: 'smooth' });
+        }
+
+
+        /**
+         * Custom confirmation modal (replaces window.confirm)
+         */
+        function showConfirmModal(title, message, onConfirm) {
+            const existingModal = document.getElementById('customConfirmModal');
+            if (existingModal) existingModal.remove();
+
+            const modalHtml = `
+                <div id="customConfirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all border-l-4 border-yellow-500">
+                        <h3 class="text-xl font-bold mb-3 text-yellow-700">${title}</h3>
+                        <p class="text-gray-700 mb-4">${message}</p>
+                        <div class="flex justify-end space-x-3 mt-4">
+                            <button onclick="document.getElementById('customConfirmModal').remove()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Batal</button>
+                            <button id="confirmActionButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Konfirmasi</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            document.getElementById('confirmActionButton').onclick = () => {
+                document.getElementById('customConfirmModal').remove();
+                onConfirm();
+            };
+        }
+
+        /**
+         * Simple custom message modal (replacing alert). (No changes)
+         */
+        function showMessageModal(title, message) {
+            const existingModal = document.getElementById('customMessageModal');
+            if (existingModal) existingModal.remove();
+
+            const modalHtml = `
+                <div id="customMessageModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all">
+                        <h3 class="text-xl font-bold mb-3 text-blue-700">${title}</h3>
+                        <p class="text-gray-700 mb-4">${message}</p>
+                        <button onclick="document.getElementById('customMessageModal').remove()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg">Tutup</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function showErrorModal(title, message) {
+             const existingModal = document.getElementById('customMessageModal');
+            if (existingModal) existingModal.remove();
+
+            const modalHtml = `
+                <div id="customMessageModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all border-l-4 border-red-500">
+                        <h3 class="text-xl font-bold mb-3 text-red-700">${title}</h3>
+                        <p class="text-gray-700 mb-4">${message}</p>
+                        <button onclick="document.getElementById('customMessageModal').remove()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg">Tutup</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        /**
+         * Dynamically creates the radio buttons (1 to 5 scale) for all questions. (No changes)
+         */
+        function createRadioInputs(containerId, name) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            for (let i = 1; i <= 5; i++) {
+                const isChecked = i === 3 ? 'checked' : ''; // Default to neutral (3)
+                const label = document.createElement('label');
+                label.className = 'cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition duration-150';
+                label.innerHTML = `
+                    <input type="radio" id="${name}_${i}" name="${name}" value="${i}" ${i === 3 ? 'checked' : ''} required class="hidden peer">
+                    <span class="text-sm font-semibold peer-checked:bg-blue-500 peer-checked:text-white bg-gray-200 text-gray-700 w-8 h-8 flex items-center justify-center rounded-full transition duration-150 shadow-md hover:shadow-lg">${i}</span>
+                `;
+                container.appendChild(label);
+            }
+        }
+
+        // --- Event Listeners and Execution (Refactored) ---
+
+        SURVEY_FORM.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = document.getElementById('submitButton');
+            button.disabled = true;
+            button.textContent = editingStudentId ? 'Menyimpan Perubahan...' : 'Menyimpan Data...';
+
+            const formData = new FormData(SURVEY_FORM);
+            const studentData = Object.fromEntries(formData.entries());
+
+            try {
+                // 1. Validation
+                const requiredFields = ['studentName', 'studentClass', 
+                    'q1_sport', 'q2_sport', 'q3_sport', 
+                    'q4_art', 'q5_art', 'q6_art', 
+                    'q7_research', 'q8_research', 'q9_research']; // FIXED: Removed tech fields
+
+                for (const field of requiredFields) {
+                    if (!studentData[field]) {
+                        throw new Error(`Semua pertanyaan wajib dijawab. Pertanyaan untuk ${field} belum terisi.`);
+                    }
+                }
+
+                // 2. Calculate scores
+                const { scores, topInterest } = calculateResults(studentData);
+
+                // 3. Prepare data
+                const studentRecord = {
+                    name: studentData.studentName.trim(),
+                    class: studentData.studentClass.trim(),
+                    scores: scores,
+                    topInterest: topInterest,
+                    answers: {
+                        q1_sport: parseInt(studentData.q1_sport), q2_sport: parseInt(studentData.q2_sport), q3_sport: parseInt(studentData.q3_sport),
+                        q4_art: parseInt(studentData.q4_art), q5_art: parseInt(studentData.q5_art), q6_art: parseInt(studentData.q6_art),
+                        q7_research: parseInt(studentData.q7_research), q8_research: parseInt(studentData.q8_research), q9_research: parseInt(studentData.q9_research)
+                    } // FIXED: Removed tech fields
+                };
+                
+                // 4. Handle Offline/Demo Mode
+                if (isDummyMode) {
+                    let actionMessage = '';
+
+                    if (editingStudentId) {
+                        // OFFLINE EDIT/UPDATE
+                        const index = students.findIndex(s => s.id === editingStudentId);
+                        if (index !== -1) {
+                            students[index] = { ...students[index], ...studentRecord }; // Merge data
+                            actionMessage = `Perubahan data siswa ${studentRecord.name} berhasil diperbarui secara lokal.`;
+                        }
+                    } else {
+                        // OFFLINE ADD
+                        studentRecord.id = crypto.randomUUID();
+                        studentRecord.timestamp = new Date().toISOString();
+                        students.push(studentRecord);
+                        actionMessage = `Data siswa ${studentRecord.name} berhasil ditambahkan secara lokal.`;
+                    }
+                    
+                    // Update UI locally
+                    STUDENT_COUNT_SPAN.textContent = students.length;
+                    renderStudentsTable(students);
+                    renderCharts(students);
+
+                    // Download the consolidated data to TXT
+                    exportToTXT(students); 
+
+                    button.disabled = false;
+                    button.textContent = 'Simpan Data Siswa';
+                    toggleModal(false);
+                    return;
+                }
+
+                // 5. Handle Online/Firebase Mode
+                const colRef = getCollectionRef();
+                if (!colRef) throw new Error("Koneksi database tidak siap.");
+                
+                if (editingStudentId) {
+                    // EDIT/UPDATE MODE (ONLINE)
+                    const docRef = doc(colRef, editingStudentId);
+                    await updateDoc(docRef, studentRecord);
+                    toggleModal(false);
+                    showMessageModal("Berhasil!", `Perubahan data siswa ${studentRecord.name} berhasil disimpan.`);
+                } else {
+                    // ADD MODE (ONLINE)
+                    studentRecord.timestamp = serverTimestamp(); // Add timestamp only on creation
+                    await addDoc(colRef, studentRecord);
+                    toggleModal(false);
+                    showMessageModal("Berhasil!", `Data siswa ${studentRecord.name} berhasil disimpan.`);
+                }
+
+            } catch (error) {
+                console.error("Error saving document: ", error);
+                showErrorModal("Gagal Menyimpan Data", `Terjadi kesalahan: ${error.message}.`);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Simpan Data Siswa';
+            }
+        });
+
+
+        // Initialize the radio buttons on load
+        window.onload = function() {
+            for(let i = 1; i <= 3; i++) createRadioInputs(`q${i}_sport_radios`, `q${i}_sport`);
+            for(let i = 4; i <= 6; i++) createRadioInputs(`q${i}_art_radios`, `q${i}_art`);
+            for(let i = 7; i <= 9; i++) createRadioInputs(`q${i}_research_radios`, `q${i}_research`);
+            // FIXED: Removed line for non-existent tech radios
+
+            initializeFirebase();
+        }
+
+    </script>
+</body>
+</html>
